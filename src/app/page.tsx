@@ -1,65 +1,1067 @@
-import Image from "next/image";
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type Speaker = "doctor" | "patient";
+
+interface DialogueLine {
+  speaker: Speaker;
+  text: string;
+}
+
+interface SoapSection {
+  key: "S" | "O" | "A" | "P";
+  label: string;
+  cssClass: "s-label" | "o-label" | "a-label" | "p-label";
+  html: string;
+  appearsAfter: number;
+}
+
+const DIALOGUE_DATA: DialogueLine[] = [
+  {
+    speaker: "doctor",
+    text: "Good morning, Mrs. Johnson. How have things been since your last visit?",
+  },
+  {
+    speaker: "patient",
+    text: "Hi Doctor. My right eye has been bothering me — it's been really dry and irritated, especially in the mornings.",
+  },
+  { speaker: "doctor", text: "How long has the dryness been going on?" },
+  {
+    speaker: "patient",
+    text: "I'd say about three weeks now. I've been using over-the-counter drops but they only help for a little while.",
+  },
+  { speaker: "doctor", text: "Any changes in your vision or any pain?" },
+  {
+    speaker: "patient",
+    text: "No pain, just that gritty, sandy feeling. My vision seems about the same.",
+  },
+  {
+    speaker: "doctor",
+    text: "Let me take a look. I'm going to start with the slit lamp exam.",
+  },
+  {
+    speaker: "doctor",
+    text: "I'm seeing reduced tear film quality in the right eye. Tear break-up time is about 4 seconds. Left eye looks better at 9 seconds.",
+  },
+  { speaker: "patient", text: "Is that something serious?" },
+  {
+    speaker: "doctor",
+    text: "It's a very common condition — dry eye syndrome. I'd like to start you on preservative-free artificial tears four times daily and we'll reassess in four weeks.",
+  },
+];
+
+const SOAP_DATA: SoapSection[] = [
+  {
+    key: "S",
+    label: "Subjective",
+    cssClass: "s-label",
+    html: "Patient reports 3-week history of dryness and irritation OD, worse in AM. Currently using OTC artificial tears with temporary relief. Denies pain or vision changes.",
+    appearsAfter: 2,
+  },
+  {
+    key: "O",
+    label: "Objective",
+    cssClass: "o-label",
+    html: 'VA: OD 20/25, OS 20/20. Slit lamp: Reduced tear film quality OD. <span class="medical-term">TBUT</span>: OD 4 sec, OS 9 sec. Cornea clear bilaterally. No staining with <span class="medical-term">fluorescein</span>.',
+    appearsAfter: 6,
+  },
+  {
+    key: "A",
+    label: "Assessment",
+    cssClass: "a-label",
+    html: '<span class="medical-term">Dry eye syndrome</span> (keratoconjunctivitis sicca), right eye. Mild severity.',
+    appearsAfter: 8,
+  },
+  {
+    key: "P",
+    label: "Plan",
+    cssClass: "p-label",
+    html: "1. Preservative-free artificial tears QID OD<br>2. Warm compresses BID<br>3. Follow-up in 4 weeks to reassess<br>4. Patient educated on environmental modifications",
+    appearsAfter: 9,
+  },
+];
+
+const CHAT_STARTERS = [
+  "Generate me a sample SOAP note",
+  "Is this HIPAA compliant?",
+  "Can it run inside my practice?",
+  "How much time could I save?",
+  "Does this work with Optomate?",
+];
+
+function formatReply(text: string): string {
+  return text
+    .split("\n\n")
+    .map((para) => {
+      const bolded = para.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+      const withBreaks = bolded.replace(/\n/g, "<br>");
+      return `<p>${withBreaks}</p>`;
+    })
+    .join("");
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+type DemoStatus = "Ready" | "Recording" | "Complete";
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+  html: string;
+}
 
 export default function Home() {
+  // Nav
+  const [navScrolled, setNavScrolled] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Demo
+  const [shownDialogue, setShownDialogue] = useState<number[]>([]);
+  const [visibleSoap, setVisibleSoap] = useState<Set<string>>(new Set());
+  const [demoStatus, setDemoStatus] = useState<DemoStatus>("Ready");
+  const [dotActive, setDotActive] = useState(false);
+  const [pulseActive, setPulseActive] = useState(false);
+  const [typingVisible, setTypingVisible] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+  const [liveBadge, setLiveBadge] = useState("Live");
+  const [genBadge, setGenBadge] = useState("Generating");
+  const demoRunningRef = useRef(false);
+  const demoTimeoutsRef = useRef<number[]>([]);
+  const timerIntervalRef = useRef<number | null>(null);
+  const demoContainerRef = useRef<HTMLDivElement>(null);
+  const dialogueFeedRef = useRef<HTMLDivElement>(null);
+
+  // Chat
+  const [fabVisible, setFabVisible] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatInputValue, setChatInputValue] = useState("");
+  const [chatSending, setChatSending] = useState(false);
+  const chatInputRef = useRef<HTMLInputElement>(null);
+  const chatMessagesRef = useRef<HTMLDivElement>(null);
+
+  /* ========= Nav scroll ========= */
+  useEffect(() => {
+    const onScroll = () => setNavScrolled(window.scrollY > 40);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  /* ========= Fade-up observer ========= */
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("in-view");
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.15 },
+    );
+    document.querySelectorAll(".fade-up").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  /* ========= Demo engine ========= */
+  const clearDemo = useCallback(() => {
+    demoTimeoutsRef.current.forEach((t) => window.clearTimeout(t));
+    demoTimeoutsRef.current = [];
+    if (timerIntervalRef.current) {
+      window.clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+    setShownDialogue([]);
+    setVisibleSoap(new Set());
+    setTypingVisible(false);
+    setPulseActive(false);
+    setDotActive(false);
+    setDemoStatus("Ready");
+    setTimerSeconds(0);
+    setLiveBadge("Live");
+    setGenBadge("Generating");
+    demoRunningRef.current = false;
+  }, []);
+
+  const runDemo = useCallback(() => {
+    if (demoRunningRef.current) return;
+    clearDemo();
+    demoRunningRef.current = true;
+    setDotActive(true);
+    setDemoStatus("Recording");
+    setPulseActive(true);
+
+    timerIntervalRef.current = window.setInterval(() => {
+      setTimerSeconds((s) => s + 1);
+    }, 1000);
+
+    DIALOGUE_DATA.forEach((_, i) => {
+      const delay = (i + 1) * 1500;
+
+      demoTimeoutsRef.current.push(
+        window.setTimeout(() => setTypingVisible(true), delay - 400),
+      );
+
+      demoTimeoutsRef.current.push(
+        window.setTimeout(() => {
+          setTypingVisible(false);
+          setShownDialogue((prev) => [...prev, i]);
+
+          window.requestAnimationFrame(() => {
+            const feed = dialogueFeedRef.current;
+            if (feed) feed.scrollTop = feed.scrollHeight;
+          });
+
+          SOAP_DATA.forEach((section) => {
+            if (section.appearsAfter === i) {
+              demoTimeoutsRef.current.push(
+                window.setTimeout(() => {
+                  setVisibleSoap((prev) => {
+                    const next = new Set(prev);
+                    next.add(section.key);
+                    return next;
+                  });
+                }, 600),
+              );
+            }
+          });
+
+          if (i === DIALOGUE_DATA.length - 1) {
+            demoTimeoutsRef.current.push(
+              window.setTimeout(() => {
+                setDotActive(false);
+                setDemoStatus("Complete");
+                setPulseActive(false);
+                setLiveBadge("Done");
+                setGenBadge("Complete");
+                if (timerIntervalRef.current) {
+                  window.clearInterval(timerIntervalRef.current);
+                  timerIntervalRef.current = null;
+                }
+                demoRunningRef.current = false;
+              }, 1200),
+            );
+          }
+        }, delay),
+      );
+    });
+  }, [clearDemo]);
+
+  useEffect(() => {
+    const el = demoContainerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !demoRunningRef.current) {
+            runDemo();
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.3 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [runDemo]);
+
+  useEffect(() => {
+    const timeouts = demoTimeoutsRef;
+    const interval = timerIntervalRef;
+    return () => {
+      timeouts.current.forEach((t) => window.clearTimeout(t));
+      if (interval.current) window.clearInterval(interval.current);
+    };
+  }, []);
+
+  /* ========= Chat FAB visibility ========= */
+  useEffect(() => {
+    let shown = false;
+    const show = () => {
+      if (shown) return;
+      shown = true;
+      setFabVisible(true);
+    };
+    const timer = window.setTimeout(show, 15000);
+    const heroEl = document.querySelector(".hero");
+    const observer =
+      heroEl &&
+      new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (!entry.isIntersecting) show();
+          });
+        },
+        { threshold: 0 },
+      );
+    if (observer && heroEl) observer.observe(heroEl);
+    return () => {
+      window.clearTimeout(timer);
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
+  /* ========= Chat Escape key ========= */
+  useEffect(() => {
+    if (!chatOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setChatOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [chatOpen]);
+
+  /* ========= Scroll chat to bottom on update ========= */
+  useEffect(() => {
+    const el = chatMessagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [chatMessages, chatSending]);
+
+  const sendMessage = useCallback(
+    async (text: string) => {
+      if (chatSending || !text.trim()) return;
+      const trimmed = text.trim();
+      setChatSending(true);
+
+      const history: { role: "user" | "assistant"; content: string }[] = [
+        ...chatMessages.map((m) => ({ role: m.role, content: m.content })),
+        { role: "user", content: trimmed },
+      ];
+
+      setChatMessages((prev) => [
+        ...prev,
+        { role: "user", content: trimmed, html: escapeHtml(trimmed) },
+      ]);
+      setChatInputValue("");
+
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: history }),
+        });
+        if (!res.ok) throw new Error("API error");
+        const data = await res.json();
+        const reply: string = data.reply;
+        setChatMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: reply, html: formatReply(reply) },
+        ]);
+      } catch {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "error",
+            html: "<p>I apologize — I'm having trouble connecting right now. Please try again in a moment, or reach out to Dennis Foy at Integra Consulting directly.</p>",
+          },
+        ]);
+      } finally {
+        setChatSending(false);
+        window.requestAnimationFrame(() => chatInputRef.current?.focus());
+      }
+    },
+    [chatMessages, chatSending],
+  );
+
+  const onSmoothScroll = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, targetSelector: string) => {
+      const target = document.querySelector(targetSelector);
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    },
+    [],
+  );
+
+  const timerDisplay = `${String(Math.floor(timerSeconds / 60)).padStart(2, "0")}:${String(timerSeconds % 60).padStart(2, "0")}`;
+
+  const mobileNavInline: React.CSSProperties = mobileNavOpen
+    ? {
+        display: "flex",
+        flexDirection: "column",
+        position: "absolute",
+        top: "100%",
+        left: 0,
+        right: 0,
+        background: "rgba(246,250,253,0.95)",
+        backdropFilter: "blur(20px)",
+        padding: "16px 24px",
+        gap: "16px",
+        borderRadius: "0 0 16px 16px",
+      }
+    : {};
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
+    <>
+      {/* ====== NAV ====== */}
+      <nav className={`nav${navScrolled ? " scrolled" : ""}`} id="nav">
+        <div className="container nav-inner">
+          <a
+            href="#"
+            className="nav-logo"
+            onClick={(e) => onSmoothScroll(e, "body")}
+          >
+            AI Smart Scribe
+          </a>
+          <ul className="nav-links" style={mobileNavInline}>
+            <li>
+              <a href="#demo" onClick={(e) => onSmoothScroll(e, "#demo")}>
+                Platform
+              </a>
+            </li>
+            <li>
+              <a
+                href="#security"
+                onClick={(e) => onSmoothScroll(e, "#security")}
+              >
+                Security
+              </a>
+            </li>
+            <li>
+              <a
+                href="#workflow"
+                onClick={(e) => onSmoothScroll(e, "#workflow")}
+              >
+                Evidence
+              </a>
+            </li>
+            <li>
+              <a href="#cta" onClick={(e) => onSmoothScroll(e, "#cta")}>
+                Pricing
+              </a>
+            </li>
+          </ul>
+          <div className="nav-actions">
+            <button className="nav-login" type="button">
+              Login
+            </button>
             <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              href="#cta"
+              className="btn btn-primary btn-sm"
+              onClick={(e) => onSmoothScroll(e, "#cta")}
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Get Started
+            </a>
+          </div>
+          <button
+            className="nav-toggle"
+            type="button"
+            aria-label="Toggle menu"
+            onClick={() => setMobileNavOpen((o) => !o)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        </div>
+      </nav>
+
+      {/* ====== HERO ====== */}
+      <section className="hero">
+        <div className="container">
+          <div className="hero-grid">
+            <div className="hero-content">
+              <div className="hero-badge">HIPAA Compliant Ambient AI</div>
+              <h1>
+                The Clinical Scribe that <em>Really Listens.</em>
+              </h1>
+              <p className="hero-sub">
+                AI Smart Scribe ambiently captures patient visits and generates
+                precise SOAP notes in real-time — so you can focus on your
+                patient, not your keyboard.
+              </p>
+              <div className="hero-ctas">
+                <a
+                  href="#cta"
+                  className="btn btn-primary"
+                  onClick={(e) => onSmoothScroll(e, "#cta")}
+                >
+                  Start Your Free Trial
+                </a>
+                <a
+                  href="#demo"
+                  className="btn btn-ghost"
+                  onClick={(e) => onSmoothScroll(e, "#demo")}
+                >
+                  Watch Demo
+                </a>
+              </div>
+            </div>
+            <div style={{ position: "relative" }}>
+              <div className="hero-demo-card">
+                <div className="hero-demo-header">
+                  <div className="hero-demo-dot" />
+                  <span className="hero-demo-label">Live Session</span>
+                </div>
+                <div className="hero-demo-lines">
+                  <div className="hero-demo-line" />
+                  <div className="hero-demo-line" />
+                  <div className="hero-demo-line" />
+                  <div className="hero-demo-line" />
+                  <div className="hero-demo-line" />
+                  <div className="hero-demo-line" />
+                </div>
+                <div className="hero-demo-badge">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="23" />
+                  </svg>
+                  Ambient Capture Active
+                </div>
+              </div>
+              <div className="hero-float hero-float-top">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+                98% Accuracy
+              </div>
+              <div className="hero-float hero-float-bottom">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+                2.5hrs Saved
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="stats">
+          <div className="container">
+            <div className="stats-grid">
+              <div className="stat fade-up">
+                <div className="stat-value">85k+</div>
+                <div className="stat-label">Clinicians</div>
+              </div>
+              <div className="stat fade-up" style={{ animationDelay: "0.1s" }}>
+                <div className="stat-value">20M+</div>
+                <div className="stat-label">Encounters</div>
+              </div>
+              <div className="stat fade-up" style={{ animationDelay: "0.2s" }}>
+                <div className="stat-value">2.5hrs</div>
+                <div className="stat-label">Saved Daily</div>
+              </div>
+              <div className="stat fade-up" style={{ animationDelay: "0.3s" }}>
+                <div className="stat-value">98%</div>
+                <div className="stat-label">Accuracy</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== DEMO ====== */}
+      <section className="demo-section" id="demo">
+        <div className="container">
+          <div className="demo-header fade-up">
+            <h2>Real-time Intelligence</h2>
+            <p>
+              See how AI Smart Scribe transforms dialogue into structured
+              clinical data.
+            </p>
+          </div>
+
+          <div className="demo-container" ref={demoContainerRef}>
+            <div className="demo-toolbar">
+              <div className="demo-status">
+                <div
+                  className={`demo-status-dot${dotActive ? " active" : ""}`}
+                />
+                <span className="demo-status-label">{demoStatus}</span>
+              </div>
+              <span className="demo-timer">{timerDisplay}</span>
+              <button
+                className="demo-replay"
+                type="button"
+                title="Replay Demo"
+                onClick={() => {
+                  clearDemo();
+                  window.setTimeout(runDemo, 200);
+                }}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="1 4 1 10 7 10" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
+                Replay
+              </button>
+            </div>
+
+            <div className="demo-panels">
+              {/* LEFT: Dialogue */}
+              <div className="demo-panel">
+                <div className="demo-panel-header">
+                  <span className="demo-panel-title">Patient Dialogue</span>
+                  <span className="demo-panel-badge badge-live">
+                    {liveBadge}
+                  </span>
+                </div>
+                <div className="dialogue-feed" ref={dialogueFeedRef}>
+                  {shownDialogue.map((idx) => {
+                    const line = DIALOGUE_DATA[idx];
+                    return (
+                      <div
+                        key={idx}
+                        className={`dialogue-line ${line.speaker} visible`}
+                      >
+                        <div className={`dialogue-speaker ${line.speaker}`}>
+                          {line.speaker === "doctor"
+                            ? "Dr. Nguyen"
+                            : "Mrs. Johnson"}
+                        </div>
+                        <div className="dialogue-text">{line.text}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div
+                  className={`dialogue-typing${typingVisible ? " visible" : ""}`}
+                >
+                  <span />
+                  <span />
+                  <span />
+                </div>
+              </div>
+
+              {/* RIGHT: SOAP */}
+              <div className="demo-panel">
+                <div className="demo-panel-header">
+                  <span className="demo-panel-title">
+                    Structured Documentation
+                  </span>
+                  <span className="demo-panel-badge badge-generating">
+                    {genBadge}
+                  </span>
+                </div>
+                <div className="soap-content">
+                  {SOAP_DATA.map((section) => (
+                    <div
+                      key={section.key}
+                      className={`soap-section${visibleSoap.has(section.key) ? " visible" : ""}`}
+                    >
+                      <div className={`soap-label ${section.cssClass}`}>
+                        <strong>{section.key}</strong> — {section.label}
+                      </div>
+                      <div
+                        className="soap-text"
+                        dangerouslySetInnerHTML={{ __html: section.html }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className={`scribe-pulse${pulseActive ? " active" : ""}`}>
+              <div className="scribe-pulse-rings">
+                <div className="scribe-pulse-ring" />
+                <div className="scribe-pulse-ring" />
+                <div className="scribe-pulse-ring" />
+                <div className="scribe-pulse-ring" />
+                <div className="scribe-pulse-ring" />
+              </div>
+              <span className="scribe-pulse-text">AI Scribe Listening</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== WORKFLOW ====== */}
+      <section className="workflow" id="workflow">
+        <div className="container">
+          <div className="workflow-header fade-up">
+            <h2>Effortless Workflow</h2>
+            <p>
+              From patient conversation to complete documentation in three
+              simple steps.
+            </p>
+          </div>
+          <div className="workflow-grid">
+            <div className="workflow-card fade-up">
+              <div className="workflow-icon workflow-icon-1">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="23" />
+                </svg>
+              </div>
+              <div className="workflow-step">1. Record</div>
+              <h3>Just Talk</h3>
+              <p>
+                Place your device in the room. AI Smart Scribe ambiently
+                captures the natural conversation without requiring any manual
+                input.
+              </p>
+            </div>
+            <div
+              className="workflow-card fade-up"
+              style={{ animationDelay: "0.15s" }}
             >
-              Learning
-            </a>{" "}
-            center.
+              <div className="workflow-icon workflow-icon-2">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                  <line x1="8" y1="21" x2="16" y2="21" />
+                  <line x1="12" y1="17" x2="12" y2="21" />
+                </svg>
+              </div>
+              <div className="workflow-step">2. AI Processes</div>
+              <h3>Instant Notes</h3>
+              <p>
+                Our clinical-grade AI fills out each section of your structured
+                documentation following a clinical note standard.
+              </p>
+            </div>
+            <div
+              className="workflow-card fade-up"
+              style={{ animationDelay: "0.3s" }}
+            >
+              <div className="workflow-icon workflow-icon-3">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <div className="workflow-step">3. Review &amp; Sync</div>
+              <h3>Sign &amp; Submit</h3>
+              <p>
+                Review the note on your tablet or desktop, make any edits, then
+                push documentation directly to your existing EHR.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== SECURITY ====== */}
+      <section className="security" id="security">
+        <div className="container">
+          <div className="security-grid">
+            <div>
+              <h2>Medical-Grade Privacy. No Compromises.</h2>
+              <div className="security-features">
+                <div className="security-feature">
+                  <div className="security-feature-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>HIPAA &amp; SOC2 Compliant</h4>
+                    <p>
+                      Every byte is encrypted. We exceed industry standards for
+                      health care data security and privacy protection.
+                    </p>
+                  </div>
+                </div>
+                <div className="security-feature">
+                  <div className="security-feature-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>Local Processing Option</h4>
+                    <p>
+                      Audio can be transcribed locally on your device. No PHI
+                      needs to leave your premises if you prefer on-site
+                      control.
+                    </p>
+                  </div>
+                </div>
+                <div className="security-feature">
+                  <div className="security-feature-icon">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="22 12 16 12 14 15 10 9 8 12 2 12" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h4>No Audio Retention</h4>
+                    <p>
+                      Audio is processed in real-time and immediately
+                      discarded. Your conversations are never stored after the
+                      visit ends.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="security-card">
+              <div className="shield-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <h3>Your Patient Data Stays Yours</h3>
+              <p>
+                We do not sell, share, or train AI models on your patient data.
+                Your practice&apos;s information is used only to serve you.
+              </p>
+              <button className="btn" type="button">
+                Download Security Whitepaper
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ====== CTA ====== */}
+      <section className="cta-section" id="cta">
+        <div className="container">
+          <h2 className="fade-up">Ready to recapture your time?</h2>
+          <p className="fade-up">
+            Join thousands of practitioners who have eliminated charting
+            after-hours. Experience the intelligent future of documentation
+            today.
+          </p>
+          <div className="cta-buttons fade-up">
+            <a href="#" className="btn btn-primary">
+              Get Started Free
+            </a>
+            <a href="#" className="btn btn-ghost">
+              Schedule a Demo
+            </a>
+          </div>
+          <p className="cta-note fade-up">
+            No credit card required. HIPAA compliant setup in 5 minutes.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* ====== FOOTER ====== */}
+      <footer className="footer">
+        <div className="container footer-inner">
+          <span className="footer-brand">AI Smart Scribe</span>
+          <span className="footer-copy">
+            © 2026 AI Smart Scribe · Powered by Integra Consulting
+          </span>
+          <ul className="footer-links">
+            <li>
+              <a href="#">Privacy</a>
+            </li>
+            <li>
+              <a href="#">Terms</a>
+            </li>
+            <li>
+              <a href="#">Contact</a>
+            </li>
+          </ul>
         </div>
-      </main>
-    </div>
+      </footer>
+
+      {/* ====== CHAT FAB ====== */}
+      <button
+        className={`chat-fab${fabVisible ? " visible" : ""}${chatOpen ? " hidden" : ""}`}
+        type="button"
+        aria-label="Chat with AI Smart Scribe"
+        onClick={() => {
+          setChatOpen(true);
+          window.requestAnimationFrame(() => chatInputRef.current?.focus());
+        }}
+      >
+        <div className="chat-fab-pulse" />
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </button>
+
+      {/* ====== CHAT PANEL ====== */}
+      <div className={`chat-panel${chatOpen ? " open" : ""}`}>
+        <div className="chat-panel-header">
+          <div className="chat-panel-title">
+            <div className="chat-panel-dot" />
+            <span>Ask AI Smart Scribe</span>
+          </div>
+          <button
+            className="chat-close"
+            type="button"
+            aria-label="Close chat"
+            onClick={() => setChatOpen(false)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className="chat-messages" ref={chatMessagesRef}>
+          {chatMessages.length === 0 && (
+            <div className="chat-starters">
+              <div className="chat-starters-label">Try asking:</div>
+              <div className="chat-starter-pills">
+                {CHAT_STARTERS.map((q) => (
+                  <button
+                    key={q}
+                    className="chat-starter"
+                    type="button"
+                    onClick={() => sendMessage(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {chatMessages.map((msg, i) => (
+            <div key={i} className={`chat-msg ${msg.role}`}>
+              <div
+                className="chat-msg-bubble"
+                dangerouslySetInnerHTML={{ __html: msg.html }}
+              />
+            </div>
+          ))}
+          {chatSending && (
+            <div className="chat-loading">
+              <span />
+              <span />
+              <span />
+            </div>
+          )}
+        </div>
+        <div className="chat-input-bar">
+          <input
+            ref={chatInputRef}
+            type="text"
+            className="chat-input"
+            placeholder="Ask about AI Smart Scribe..."
+            autoComplete="off"
+            value={chatInputValue}
+            onChange={(e) => setChatInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (chatInputValue.trim()) sendMessage(chatInputValue);
+              }
+            }}
+          />
+          <button
+            className="chat-send"
+            type="button"
+            aria-label="Send message"
+            disabled={chatSending || !chatInputValue.trim()}
+            onClick={() => {
+              if (chatInputValue.trim()) sendMessage(chatInputValue);
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </>
   );
 }
