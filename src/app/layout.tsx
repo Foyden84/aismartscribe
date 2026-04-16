@@ -19,17 +19,46 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "AI Smart Scribe — The Clinical Scribe that Really Listens",
+  title: {
+    default: "AI Smart Scribe — The Clinical Scribe that Really Listens",
+    template: "%s · AI Smart Scribe",
+  },
   description:
     "AI Smart Scribe ambiently captures patient visits and generates precise SOAP notes in real-time — so you can focus on your patient, not your keyboard.",
   metadataBase: new URL("https://aismartscribe.com"),
+  applicationName: "AI Smart Scribe",
+  authors: [{ name: "Integra Consulting" }],
+  keywords: [
+    "AI scribe",
+    "ambient AI",
+    "SOAP note",
+    "optometry",
+    "HIPAA",
+    "clinical documentation",
+    "Optomate",
+  ],
   openGraph: {
     title: "AI Smart Scribe — The Clinical Scribe that Really Listens",
     description:
-      "Ambient AI scribe for independent optometry and medical practices. HIPAA compliant.",
+      "Ambient AI scribe for independent optometry and medical practices. HIPAA compliant cloud or on-premise.",
     url: "https://aismartscribe.com",
     siteName: "AI Smart Scribe",
     type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI Smart Scribe — The Clinical Scribe that Really Listens",
+    description:
+      "Ambient AI scribe for independent optometry practices. Real-time SOAP notes. HIPAA compliant.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
 };
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { MarketingNav } from "@/components/layout/MarketingNav";
+import { ChatBubble } from "@/components/assistant/ChatBubble";
 
 type Speaker = "doctor" | "patient";
 
@@ -85,41 +86,7 @@ const SOAP_DATA: SoapSection[] = [
   },
 ];
 
-const CHAT_STARTERS = [
-  "Generate me a sample SOAP note",
-  "Is this HIPAA compliant?",
-  "Can it run inside my practice?",
-  "How much time could I save?",
-  "Does this work with Optomate?",
-];
-
-function formatReply(text: string): string {
-  return text
-    .split("\n\n")
-    .map((para) => {
-      const bolded = para.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
-      const withBreaks = bolded.replace(/\n/g, "<br>");
-      return `<p>${withBreaks}</p>`;
-    })
-    .join("");
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 type DemoStatus = "Ready" | "Recording" | "Complete";
-
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  html: string;
-}
 
 export default function Home() {
   // Auth state (used by hero + CTA to switch copy/links for signed-in users)
@@ -140,15 +107,6 @@ export default function Home() {
   const timerIntervalRef = useRef<number | null>(null);
   const demoContainerRef = useRef<HTMLDivElement>(null);
   const dialogueFeedRef = useRef<HTMLDivElement>(null);
-
-  // Chat
-  const [fabVisible, setFabVisible] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
-  const [chatInputValue, setChatInputValue] = useState("");
-  const [chatSending, setChatSending] = useState(false);
-  const chatInputRef = useRef<HTMLInputElement>(null);
-  const chatMessagesRef = useRef<HTMLDivElement>(null);
 
   /* ========= Fade-up observer ========= */
   useEffect(() => {
@@ -277,96 +235,6 @@ export default function Home() {
       if (interval.current) window.clearInterval(interval.current);
     };
   }, []);
-
-  /* ========= Chat FAB visibility ========= */
-  useEffect(() => {
-    let shown = false;
-    const show = () => {
-      if (shown) return;
-      shown = true;
-      setFabVisible(true);
-    };
-    const timer = window.setTimeout(show, 15000);
-    const heroEl = document.querySelector(".hero");
-    const observer =
-      heroEl &&
-      new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (!entry.isIntersecting) show();
-          });
-        },
-        { threshold: 0 },
-      );
-    if (observer && heroEl) observer.observe(heroEl);
-    return () => {
-      window.clearTimeout(timer);
-      if (observer) observer.disconnect();
-    };
-  }, []);
-
-  /* ========= Chat Escape key ========= */
-  useEffect(() => {
-    if (!chatOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setChatOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [chatOpen]);
-
-  /* ========= Scroll chat to bottom on update ========= */
-  useEffect(() => {
-    const el = chatMessagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [chatMessages, chatSending]);
-
-  const sendMessage = useCallback(
-    async (text: string) => {
-      if (chatSending || !text.trim()) return;
-      const trimmed = text.trim();
-      setChatSending(true);
-
-      const history: { role: "user" | "assistant"; content: string }[] = [
-        ...chatMessages.map((m) => ({ role: m.role, content: m.content })),
-        { role: "user", content: trimmed },
-      ];
-
-      setChatMessages((prev) => [
-        ...prev,
-        { role: "user", content: trimmed, html: escapeHtml(trimmed) },
-      ]);
-      setChatInputValue("");
-
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messages: history }),
-        });
-        if (!res.ok) throw new Error("API error");
-        const data = await res.json();
-        const reply: string = data.reply;
-        setChatMessages((prev) => [
-          ...prev,
-          { role: "assistant", content: reply, html: formatReply(reply) },
-        ]);
-      } catch {
-        setChatMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "error",
-            html: "<p>I apologize — I'm having trouble connecting right now. Please try again in a moment, or reach out to Dennis Foy at Integra Consulting directly.</p>",
-          },
-        ]);
-      } finally {
-        setChatSending(false);
-        window.requestAnimationFrame(() => chatInputRef.current?.focus());
-      }
-    },
-    [chatMessages, chatSending],
-  );
 
   const timerDisplay = `${String(Math.floor(timerSeconds / 60)).padStart(2, "0")}:${String(timerSeconds % 60).padStart(2, "0")}`;
 
@@ -851,128 +719,7 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* ====== CHAT FAB ====== */}
-      <button
-        className={`chat-fab${fabVisible ? " visible" : ""}${chatOpen ? " hidden" : ""}`}
-        type="button"
-        aria-label="Chat with AI Smart Scribe"
-        onClick={() => {
-          setChatOpen(true);
-          window.requestAnimationFrame(() => chatInputRef.current?.focus());
-        }}
-      >
-        <div className="chat-fab-pulse" />
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      </button>
-
-      {/* ====== CHAT PANEL ====== */}
-      <div className={`chat-panel${chatOpen ? " open" : ""}`}>
-        <div className="chat-panel-header">
-          <div className="chat-panel-title">
-            <div className="chat-panel-dot" />
-            <span>Ask AI Smart Scribe</span>
-          </div>
-          <button
-            className="chat-close"
-            type="button"
-            aria-label="Close chat"
-            onClick={() => setChatOpen(false)}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-        <div className="chat-messages" ref={chatMessagesRef}>
-          {chatMessages.length === 0 && (
-            <div className="chat-starters">
-              <div className="chat-starters-label">Try asking:</div>
-              <div className="chat-starter-pills">
-                {CHAT_STARTERS.map((q) => (
-                  <button
-                    key={q}
-                    className="chat-starter"
-                    type="button"
-                    onClick={() => sendMessage(q)}
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          {chatMessages.map((msg, i) => (
-            <div key={i} className={`chat-msg ${msg.role}`}>
-              <div
-                className="chat-msg-bubble"
-                dangerouslySetInnerHTML={{ __html: msg.html }}
-              />
-            </div>
-          ))}
-          {chatSending && (
-            <div className="chat-loading">
-              <span />
-              <span />
-              <span />
-            </div>
-          )}
-        </div>
-        <div className="chat-input-bar">
-          <input
-            ref={chatInputRef}
-            type="text"
-            className="chat-input"
-            placeholder="Ask about AI Smart Scribe..."
-            autoComplete="off"
-            value={chatInputValue}
-            onChange={(e) => setChatInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (chatInputValue.trim()) sendMessage(chatInputValue);
-              }
-            }}
-          />
-          <button
-            className="chat-send"
-            type="button"
-            aria-label="Send message"
-            disabled={chatSending || !chatInputValue.trim()}
-            onClick={() => {
-              if (chatInputValue.trim()) sendMessage(chatInputValue);
-            }}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
-        </div>
-      </div>
+      <ChatBubble />
     </>
   );
 }
