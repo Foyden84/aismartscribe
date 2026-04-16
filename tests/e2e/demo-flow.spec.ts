@@ -67,4 +67,24 @@ test("doctor completes the demo flow end-to-end", async ({ page }) => {
   const dashboardLink = page.getByRole("link", { name: /View in Dashboard/i });
   await dashboardLink.click();
   await expect(page).toHaveURL(/\/dashboard$/);
+
+  // Dashboard should list the note we just saved.
+  await expect(
+    page.getByRole("heading", { name: "Your Clinical Notes" }),
+  ).toBeVisible();
+
+  const firstCard = page.locator(".note-card").first();
+  await expect(firstCard).toBeVisible();
+  await expect(firstCard.getByText("Annual Eye Exam")).toBeVisible();
+  await expect(firstCard.getByText(/Dryness and irritation/i)).toBeVisible();
+
+  // Expand the card and verify the full SOAP is rendered.
+  await firstCard.getByRole("button").first().click();
+  await expect(firstCard.getByText("HPI")).toBeVisible();
+  await expect(firstCard.getByText(/Preservative-free artificial tears/i)).toBeVisible();
+
+  // Copy buttons exist and are clickable (we can't easily read the actual
+  // clipboard contents from a headless run, so clicking is the proof).
+  await firstCard.getByRole("button", { name: /Copy to Clipboard/i }).click();
+  await firstCard.getByRole("button", { name: /Copy for Optomate/i }).click();
 });
