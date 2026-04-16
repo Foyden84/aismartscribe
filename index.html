@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Smart Scribe — The Clinical Scribe that Really Listens</title>
+  <meta name="description" content="AI Smart Scribe ambiently captures patient visits and generates precise SOAP notes in real-time — so you can focus on your patient, not your keyboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ========================================
+       CSS RESET & CUSTOM PROPERTIES
+       ======================================== */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* Primary palette */
+      --primary: #00342b;
+      --primary-container: #00684f;
+      --on-primary: #ffffff;
+
+      /* Secondary — AI accent */
+      --secondary: #5b3cdd;
+      --secondary-container: #e8e0ff;
+      --secondary-fixed: #f0ecff;
+
+      /* Tertiary */
+      --tertiary: #00333a;
+      --tertiary-fixed: #00bfa5;
+
+      /* Teal accent (bright) */
+      --accent: #14b8a6;
+      --accent-soft: rgba(20, 184, 166, 0.12);
+
+      /* Surface system */
+      --surface: #f6fafd;
+      --surface-container-low: #eef3f8;
+      --surface-container-lowest: #ffffff;
+      --surface-container-high: #e2e9ef;
+      --surface-container-highest: #d8e0e8;
+
+      /* On surface */
+      --on-surface: #1a2b32;
+      --on-surface-variant: #40555e;
+      --outline-variant: rgba(138, 155, 165, 0.15);
+
+      /* Functional */
+      --error: #ba1a1a;
+      --error-container: #ffdad6;
+
+      /* Shadows */
+      --shadow-ambient: rgba(26, 43, 50, 0.06);
+      --shadow-float: 0 4px 24px var(--shadow-ambient);
+
+      /* Typography */
+      --font-display: 'Manrope', sans-serif;
+      --font-body: 'Inter', sans-serif;
+
+      /* Spacing */
+      --section-gap: 80px;
+      --container-width: 1200px;
+      --radius-sm: 0.25rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+      --radius-full: 9999px;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--on-surface);
+      background: var(--surface);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    /* ========================================
+       UTILITIES
+       ======================================== */
+    .container {
+      max-width: var(--container-width);
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ========================================
+       BUTTONS
+       ======================================== */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font-body);
+      font-weight: 600;
+      font-size: 0.9375rem;
+      padding: 12px 28px;
+      border-radius: var(--radius-full);
+      border: none;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--on-primary);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-container);
+      box-shadow: 0 4px 24px var(--shadow-ambient);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--on-surface);
+      border: 1.5px solid var(--surface-container-highest);
+    }
+
+    .btn-ghost:hover {
+      background: var(--surface-container-low);
+      border-color: var(--on-surface-variant);
+    }
+
+    .btn-sm {
+      padding: 8px 20px;
+      font-size: 0.875rem;
+    }
+
+    /* ========================================
+       NAV
+       ======================================== */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 16px 0;
+      transition: all 0.3s ease;
+    }
+
+    .nav.scrolled {
+      background: rgba(246, 250, 253, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 1px 0 var(--outline-variant);
+    }
+
+    .nav-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .nav-logo {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: 1.25rem;
+      color: var(--primary);
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--on-surface-variant);
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover {
+      color: var(--primary);
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .nav-login {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--on-surface-variant);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px 16px;
+      transition: color 0.2s;
+    }
+
+    .nav-login:hover {
+      color: var(--primary);
+    }
+
+    /* Mobile nav */
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 8px;
+    }
+
+    .nav-toggle span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--on-surface);
+      margin: 5px 0;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+
+    /* ========================================
+       HERO
+       ======================================== */
+    .hero {
+      padding: 140px 0 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(0, 52, 43, 0.04) 0%, transparent 60%),
+                  radial-gradient(ellipse at 80% 20%, rgba(91, 60, 221, 0.03) 0%, transparent 50%),
+                  var(--surface);
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      background: var(--accent-soft);
+      color: var(--primary);
+      font-family: var(--font-body);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border-radius: var(--radius-full);
+      margin-bottom: 24px;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(2.5rem, 5vw, 3.75rem);
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+      color: var(--primary);
+      margin-bottom: 20px;
+    }
+
+    .hero h1 em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--accent), var(--primary-container));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: 1.0625rem;
+      line-height: 1.65;
+      color: var(--on-surface-variant);
+      max-width: 500px;
+      margin-bottom: 36px;
+    }
+
+    .hero-ctas {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* Hero demo preview card */
+    .hero-demo-card {
+      position: relative;
+      background: var(--surface-container-lowest);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      box-shadow: 0 8px 40px rgba(26, 43, 50, 0.08);
+    }
+
+    .hero-demo-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .hero-demo-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .hero-demo-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-demo-lines {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .hero-demo-line {
+      height: 10px;
+      border-radius: var(--radius-full);
+      background: var(--surface-container-low);
+      animation: shimmer 2.5s ease-in-out infinite;
+    }
+
+    .hero-demo-line:nth-child(1) { width: 90%; animation-delay: 0s; }
+    .hero-demo-line:nth-child(2) { width: 75%; animation-delay: 0.2s; }
+    .hero-demo-line:nth-child(3) { width: 85%; animation-delay: 0.4s; }
+    .hero-demo-line:nth-child(4) { width: 60%; animation-delay: 0.6s; }
+    .hero-demo-line:nth-child(5) { width: 80%; animation-delay: 0.8s; }
+    .hero-demo-line:nth-child(6) { width: 45%; animation-delay: 1.0s; }
+
+    .hero-demo-badge {
+      position: absolute;
+      bottom: -16px;
+      left: 24px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--primary);
+      color: var(--on-primary);
+      font-size: 0.75rem;
+      font-weight: 600;
+      border-radius: var(--radius-full);
+      box-shadow: var(--shadow-float);
+    }
+
+    .hero-demo-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Floating accent elements */
+    .hero-float {
+      position: absolute;
+      background: var(--surface-container-lowest);
+      border-radius: var(--radius-lg);
+      padding: 12px 16px;
+      box-shadow: var(--shadow-float);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-float-top {
+      top: -20px;
+      right: -20px;
+      color: var(--accent);
+    }
+
+    .hero-float-bottom {
+      bottom: 20px;
+      right: -30px;
+      color: var(--secondary);
+    }
+
+    /* Stats row */
+    .stats {
+      padding: 64px 0;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 32px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      color: var(--primary);
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--on-surface-variant);
+      margin-top: 4px;
+    }
+
+    /* ========================================
+       DEMO SECTION — CENTERPIECE
+       ======================================== */
+    .demo-section {
+      padding: var(--section-gap) 0;
+      background: var(--surface-container-low);
+    }
+
+    .demo-header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .demo-header h2 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      color: var(--primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .demo-header p {
+      font-size: 1rem;
+      color: var(--on-surface-variant);
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .demo-container {
+      background: var(--primary);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .demo-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 30% 0%, rgba(0, 191, 165, 0.08) 0%, transparent 60%),
+                  radial-gradient(ellipse at 70% 100%, rgba(91, 60, 221, 0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .demo-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .demo-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .demo-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(20, 184, 166, 0.5);
+    }
+
+    .demo-status-dot.active {
+      animation: pulse-dot 1.5s ease-in-out infinite;
+    }
+
+    .demo-status-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .demo-timer {
+      font-family: var(--font-display);
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.5);
+      letter-spacing: 0.02em;
+    }
+
+    .demo-replay {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 16px;
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      border: none;
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .demo-replay:hover {
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+
+    .demo-replay svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .demo-panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .demo-panel {
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      min-height: 420px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .demo-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .demo-panel-title {
+      font-family: var(--font-display);
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.9);
+      letter-spacing: -0.01em;
+    }
+
+    .demo-panel-badge {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .badge-live {
+      background: rgba(20, 184, 166, 0.2);
+      color: var(--accent);
+    }
+
+    .badge-generating {
+      background: rgba(91, 60, 221, 0.2);
+      color: #a78bfa;
+    }
+
+    /* Dialogue panel */
+    .dialogue-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+
+    .dialogue-line {
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s ease;
+    }
+
+    .dialogue-line.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .dialogue-speaker {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 4px;
+    }
+
+    .dialogue-speaker.doctor {
+      color: var(--accent);
+    }
+
+    .dialogue-speaker.patient {
+      color: #a78bfa;
+    }
+
+    .dialogue-text {
+      font-size: 0.8125rem;
+      line-height: 1.55;
+      color: rgba(255, 255, 255, 0.85);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .dialogue-line.doctor .dialogue-text {
+      border-left: 2px solid var(--accent);
+    }
+
+    .dialogue-line.patient .dialogue-text {
+      border-left: 2px solid #a78bfa;
+    }
+
+    .dialogue-typing {
+      display: flex;
+      gap: 4px;
+      padding: 10px 14px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .dialogue-typing.visible {
+      opacity: 1;
+    }
+
+    .dialogue-typing span {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      animation: typing-bounce 1.2s ease-in-out infinite;
+    }
+
+    .dialogue-typing span:nth-child(2) { animation-delay: 0.15s; }
+    .dialogue-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+    /* SOAP note panel */
+    .soap-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .soap-section {
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.5s ease;
+    }
+
+    .soap-section.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .soap-label {
+      font-family: var(--font-display);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .soap-label.s-label { color: var(--accent); }
+    .soap-label.o-label { color: #60a5fa; }
+    .soap-label.a-label { color: #f59e0b; }
+    .soap-label.p-label { color: #a78bfa; }
+
+    .soap-text {
+      font-size: 0.8125rem;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .soap-text .medical-term {
+      display: inline;
+      padding: 1px 6px;
+      background: rgba(91, 60, 221, 0.2);
+      color: #c4b5fd;
+      border-radius: var(--radius-sm);
+      font-size: 0.8125rem;
+    }
+
+    /* Scribe pulse indicator */
+    .scribe-pulse {
+      position: absolute;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-full);
+      z-index: 2;
+      opacity: 0;
+      transition: opacity 0.4s;
+    }
+
+    .scribe-pulse.active {
+      opacity: 1;
+    }
+
+    .scribe-pulse-rings {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .scribe-pulse-ring {
+      width: 3px;
+      border-radius: 2px;
+      background: var(--accent);
+      animation: audio-bar 0.8s ease-in-out infinite alternate;
+    }
+
+    .scribe-pulse-ring:nth-child(1) { height: 8px; animation-delay: 0s; }
+    .scribe-pulse-ring:nth-child(2) { height: 14px; animation-delay: 0.1s; }
+    .scribe-pulse-ring:nth-child(3) { height: 10px; animation-delay: 0.2s; }
+    .scribe-pulse-ring:nth-child(4) { height: 16px; animation-delay: 0.3s; }
+    .scribe-pulse-ring:nth-child(5) { height: 8px; animation-delay: 0.4s; }
+
+    .scribe-pulse-text {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    /* ========================================
+       WORKFLOW SECTION
+       ======================================== */
+    .workflow {
+      padding: var(--section-gap) 0;
+      background: var(--surface);
+    }
+
+    .workflow-header {
+      text-align: center;
+      margin-bottom: 56px;
+    }
+
+    .workflow-header h2 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      color: var(--primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .workflow-header p {
+      font-size: 1rem;
+      color: var(--on-surface-variant);
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 32px;
+    }
+
+    .workflow-card {
+      background: var(--surface-container-lowest);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      position: relative;
+      transition: transform 0.3s ease;
+    }
+
+    .workflow-card:hover {
+      transform: translateY(-4px);
+    }
+
+    .workflow-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .workflow-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .workflow-icon-1 { background: var(--accent-soft); color: var(--primary); }
+    .workflow-icon-2 { background: rgba(91, 60, 221, 0.1); color: var(--secondary); }
+    .workflow-icon-3 { background: rgba(96, 165, 250, 0.1); color: #3b82f6; }
+
+    .workflow-step {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--on-surface-variant);
+      margin-bottom: 8px;
+    }
+
+    .workflow-card h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 10px;
+    }
+
+    .workflow-card p {
+      font-size: 0.875rem;
+      color: var(--on-surface-variant);
+      line-height: 1.6;
+    }
+
+    /* ========================================
+       SECURITY / PRIVACY SECTION
+       ======================================== */
+    .security {
+      padding: var(--section-gap) 0;
+      background: var(--primary);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .security::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: radial-gradient(ellipse at 20% 80%, rgba(0, 191, 165, 0.08) 0%, transparent 50%),
+                  radial-gradient(ellipse at 80% 20%, rgba(91, 60, 221, 0.06) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .security-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .security h2 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      color: var(--on-primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 32px;
+      line-height: 1.15;
+    }
+
+    .security-features {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .security-feature {
+      display: flex;
+      gap: 16px;
+    }
+
+    .security-feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .security-feature-icon svg {
+      width: 20px;
+      height: 20px;
+      color: var(--accent);
+    }
+
+    .security-feature h4 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.9375rem;
+      color: var(--on-primary);
+      margin-bottom: 4px;
+    }
+
+    .security-feature p {
+      font-size: 0.8125rem;
+      color: rgba(255, 255, 255, 0.6);
+      line-height: 1.55;
+    }
+
+    .security-card {
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-xl);
+      padding: 40px;
+      text-align: center;
+    }
+
+    .security-card h3 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: var(--on-primary);
+      margin-bottom: 12px;
+    }
+
+    .security-card p {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.6);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .security-card .btn {
+      font-size: 0.8125rem;
+      padding: 10px 24px;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--on-primary);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .security-card .btn:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .shield-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 24px;
+      background: rgba(20, 184, 166, 0.15);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .shield-icon svg {
+      width: 32px;
+      height: 32px;
+      color: var(--accent);
+    }
+
+    /* ========================================
+       CTA SECTION
+       ======================================== */
+    .cta-section {
+      padding: var(--section-gap) 0;
+      background: var(--surface-container-low);
+      text-align: center;
+    }
+
+    .cta-section h2 {
+      font-family: var(--font-display);
+      font-weight: 800;
+      font-size: clamp(1.75rem, 3.5vw, 2.5rem);
+      color: var(--primary);
+      letter-spacing: -0.02em;
+      margin-bottom: 16px;
+    }
+
+    .cta-section p {
+      font-size: 1rem;
+      color: var(--on-surface-variant);
+      max-width: 520px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+
+    .cta-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 20px;
+    }
+
+    .cta-note {
+      font-size: 0.8125rem;
+      color: var(--on-surface-variant);
+    }
+
+    /* ========================================
+       FOOTER
+       ======================================== */
+    .footer {
+      padding: 32px 0;
+      background: var(--surface);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .footer-brand {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.875rem;
+      color: var(--primary);
+    }
+
+    .footer-copy {
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.75rem;
+      color: var(--on-surface-variant);
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover {
+      color: var(--primary);
+    }
+
+    /* ========================================
+       ANIMATIONS
+       ======================================== */
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.6; transform: scale(1.3); }
+    }
+
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 0.8; }
+    }
+
+    @keyframes typing-bounce {
+      0%, 100% { transform: translateY(0); opacity: 0.4; }
+      50% { transform: translateY(-4px); opacity: 0.8; }
+    }
+
+    @keyframes audio-bar {
+      0% { transform: scaleY(0.5); }
+      100% { transform: scaleY(1.2); }
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+    }
+
+    .fade-up.in-view {
+      animation: fade-up 0.6s ease forwards;
+    }
+
+    /* ========================================
+       RESPONSIVE
+       ======================================== */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+      .hero-demo-card {
+        max-width: 500px;
+        margin: 0 auto;
+      }
+      .demo-panels {
+        grid-template-columns: 1fr;
+      }
+      .demo-panel {
+        min-height: auto;
+      }
+      .security-grid {
+        grid-template-columns: 1fr;
+        gap: 40px;
+      }
+    }
+
+    @media (max-width: 768px) {
+      :root {
+        --section-gap: 56px;
+      }
+      .nav-links {
+        display: none;
+      }
+      .nav-toggle {
+        display: block;
+      }
+      .hero {
+        padding-top: 100px;
+      }
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+      }
+      .workflow-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      .hero-float {
+        display: none;
+      }
+      .demo-container {
+        padding: 20px;
+      }
+      .footer-inner {
+        flex-direction: column;
+        text-align: center;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .hero h1 {
+        font-size: 2rem;
+      }
+      .hero-ctas {
+        flex-direction: column;
+      }
+      .hero-ctas .btn {
+        width: 100%;
+      }
+    }
+
+    /* ========================================
+       FLOATING CHAT ASSISTANT
+       ======================================== */
+    .chat-fab {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 200;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 24px rgba(0, 52, 43, 0.25);
+      transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.4s ease;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.8);
+    }
+
+    .chat-fab.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    .chat-fab:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 32px rgba(0, 52, 43, 0.35);
+    }
+
+    .chat-fab.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.8);
+    }
+
+    .chat-fab svg {
+      width: 24px;
+      height: 24px;
+    }
+
+    .chat-fab-pulse {
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid var(--accent);
+      opacity: 0;
+      animation: fab-pulse 3s ease-in-out infinite;
+    }
+
+    @keyframes fab-pulse {
+      0%, 100% { opacity: 0; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.15); }
+    }
+
+    /* Chat panel */
+    .chat-panel {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 201;
+      width: 380px;
+      height: 520px;
+      background: rgba(246, 250, 253, 0.92);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: var(--radius-xl);
+      box-shadow: 0 12px 48px rgba(0, 52, 43, 0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(16px) scale(0.96);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .chat-panel.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0) scale(1);
+    }
+
+    .chat-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .chat-panel-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-panel-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .chat-panel-title span {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 0.9375rem;
+      color: var(--on-primary);
+    }
+
+    .chat-close {
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: rgba(255, 255, 255, 0.7);
+      transition: all 0.2s;
+    }
+
+    .chat-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    .chat-close svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Messages area */
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 16px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--surface-container-highest);
+      border-radius: 4px;
+    }
+
+    /* Starter pills */
+    .chat-starters {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px 0;
+    }
+
+    .chat-starters-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--on-surface-variant);
+      margin-bottom: 4px;
+    }
+
+    .chat-starter-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chat-starter {
+      padding: 8px 14px;
+      background: var(--surface-container-lowest);
+      border: 1px solid var(--surface-container-high);
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      color: var(--primary);
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .chat-starter:hover {
+      background: var(--accent-soft);
+      border-color: var(--accent);
+    }
+
+    /* Message bubbles */
+    .chat-msg {
+      max-width: 85%;
+      animation: fade-up 0.3s ease forwards;
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+    }
+
+    .chat-msg.assistant {
+      align-self: flex-start;
+    }
+
+    .chat-msg-bubble {
+      padding: 10px 14px;
+      border-radius: var(--radius-lg);
+      font-size: 0.8125rem;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+
+    .chat-msg.user .chat-msg-bubble {
+      background: var(--primary);
+      color: var(--on-primary);
+      border-bottom-right-radius: var(--radius-sm);
+    }
+
+    .chat-msg.assistant .chat-msg-bubble {
+      background: var(--surface-container-lowest);
+      color: var(--on-surface);
+      border-bottom-left-radius: var(--radius-sm);
+      box-shadow: 0 1px 4px var(--shadow-ambient);
+    }
+
+    .chat-msg.assistant .chat-msg-bubble p {
+      margin-bottom: 8px;
+    }
+
+    .chat-msg.assistant .chat-msg-bubble p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Loading dots */
+    .chat-loading {
+      align-self: flex-start;
+      display: flex;
+      gap: 5px;
+      padding: 12px 18px;
+      background: var(--surface-container-lowest);
+      border-radius: var(--radius-lg);
+      border-bottom-left-radius: var(--radius-sm);
+      box-shadow: 0 1px 4px var(--shadow-ambient);
+    }
+
+    .chat-loading span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--on-surface-variant);
+      animation: typing-bounce 1.2s ease-in-out infinite;
+    }
+
+    .chat-loading span:nth-child(2) { animation-delay: 0.15s; }
+    .chat-loading span:nth-child(3) { animation-delay: 0.3s; }
+
+    /* Input bar */
+    .chat-input-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      background: var(--surface-container-lowest);
+      flex-shrink: 0;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 10px 14px;
+      background: var(--surface-container-low);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-full);
+      font-family: var(--font-body);
+      font-size: 0.8125rem;
+      color: var(--on-surface);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .chat-input::placeholder {
+      color: var(--on-surface-variant);
+    }
+
+    .chat-input:focus {
+      border-color: var(--primary);
+    }
+
+    .chat-send {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .chat-send:hover {
+      background: var(--primary-container);
+    }
+
+    .chat-send:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+
+    .chat-send svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    @media (max-width: 480px) {
+      .chat-panel {
+        width: calc(100vw - 16px);
+        height: calc(100vh - 80px);
+        bottom: 8px;
+        right: 8px;
+        border-radius: var(--radius-lg);
+      }
+      .chat-fab {
+        bottom: 16px;
+        right: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ====== NAV ====== -->
+  <nav class="nav" id="nav">
+    <div class="container nav-inner">
+      <a href="#" class="nav-logo">AI Smart Scribe</a>
+      <ul class="nav-links">
+        <li><a href="#demo">Platform</a></li>
+        <li><a href="#security">Security</a></li>
+        <li><a href="#workflow">Evidence</a></li>
+        <li><a href="#cta">Pricing</a></li>
+      </ul>
+      <div class="nav-actions">
+        <button class="nav-login">Login</button>
+        <a href="#cta" class="btn btn-primary btn-sm">Get Started</a>
+      </div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ====== HERO ====== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="hero-badge">HIPAA Compliant Ambient AI</div>
+          <h1>The Clinical Scribe that <em>Really Listens.</em></h1>
+          <p class="hero-sub">AI Smart Scribe ambiently captures patient visits and generates precise SOAP notes in real-time — so you can focus on your patient, not your keyboard.</p>
+          <div class="hero-ctas">
+            <a href="#cta" class="btn btn-primary">Start Your Free Trial</a>
+            <a href="#demo" class="btn btn-ghost">Watch Demo</a>
+          </div>
+        </div>
+        <div style="position:relative;">
+          <div class="hero-demo-card">
+            <div class="hero-demo-header">
+              <div class="hero-demo-dot"></div>
+              <span class="hero-demo-label">Live Session</span>
+            </div>
+            <div class="hero-demo-lines">
+              <div class="hero-demo-line"></div>
+              <div class="hero-demo-line"></div>
+              <div class="hero-demo-line"></div>
+              <div class="hero-demo-line"></div>
+              <div class="hero-demo-line"></div>
+              <div class="hero-demo-line"></div>
+            </div>
+            <div class="hero-demo-badge">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+              Ambient Capture Active
+            </div>
+          </div>
+          <div class="hero-float hero-float-top">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            98% Accuracy
+          </div>
+          <div class="hero-float hero-float-bottom">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            2.5hrs Saved
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Stats -->
+    <div class="stats">
+      <div class="container">
+        <div class="stats-grid">
+          <div class="stat fade-up">
+            <div class="stat-value">85k+</div>
+            <div class="stat-label">Clinicians</div>
+          </div>
+          <div class="stat fade-up" style="animation-delay:0.1s">
+            <div class="stat-value">20M+</div>
+            <div class="stat-label">Encounters</div>
+          </div>
+          <div class="stat fade-up" style="animation-delay:0.2s">
+            <div class="stat-value">2.5hrs</div>
+            <div class="stat-label">Saved Daily</div>
+          </div>
+          <div class="stat fade-up" style="animation-delay:0.3s">
+            <div class="stat-value">98%</div>
+            <div class="stat-label">Accuracy</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== REAL-TIME INTELLIGENCE — DEMO ====== -->
+  <section class="demo-section" id="demo">
+    <div class="container">
+      <div class="demo-header fade-up">
+        <h2>Real-time Intelligence</h2>
+        <p>See how AI Smart Scribe transforms dialogue into structured clinical data.</p>
+      </div>
+
+      <div class="demo-container" id="demoContainer">
+        <div class="demo-toolbar">
+          <div class="demo-status">
+            <div class="demo-status-dot" id="demoDot"></div>
+            <span class="demo-status-label" id="demoStatusLabel">Ready</span>
+          </div>
+          <span class="demo-timer" id="demoTimer">00:00</span>
+          <button class="demo-replay" id="demoReplay" title="Replay Demo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+            Replay
+          </button>
+        </div>
+
+        <div class="demo-panels">
+          <!-- LEFT: Dialogue Panel -->
+          <div class="demo-panel">
+            <div class="demo-panel-header">
+              <span class="demo-panel-title">Patient Dialogue</span>
+              <span class="demo-panel-badge badge-live" id="liveBadge">Live</span>
+            </div>
+            <div class="dialogue-feed" id="dialogueFeed"></div>
+            <div class="dialogue-typing" id="dialogueTyping">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+
+          <!-- RIGHT: SOAP Panel -->
+          <div class="demo-panel">
+            <div class="demo-panel-header">
+              <span class="demo-panel-title">Structured Documentation</span>
+              <span class="demo-panel-badge badge-generating" id="genBadge">Generating</span>
+            </div>
+            <div class="soap-content" id="soapContent"></div>
+          </div>
+        </div>
+
+        <!-- Scribe pulse -->
+        <div class="scribe-pulse" id="scribePulse">
+          <div class="scribe-pulse-rings">
+            <div class="scribe-pulse-ring"></div>
+            <div class="scribe-pulse-ring"></div>
+            <div class="scribe-pulse-ring"></div>
+            <div class="scribe-pulse-ring"></div>
+            <div class="scribe-pulse-ring"></div>
+          </div>
+          <span class="scribe-pulse-text">AI Scribe Listening</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== EFFORTLESS WORKFLOW ====== -->
+  <section class="workflow" id="workflow">
+    <div class="container">
+      <div class="workflow-header fade-up">
+        <h2>Effortless Workflow</h2>
+        <p>From patient conversation to complete documentation in three simple steps.</p>
+      </div>
+      <div class="workflow-grid">
+        <div class="workflow-card fade-up">
+          <div class="workflow-icon workflow-icon-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/></svg>
+          </div>
+          <div class="workflow-step">1. Record</div>
+          <h3>Just Talk</h3>
+          <p>Place your device in the room. AI Smart Scribe ambiently captures the natural conversation without requiring any manual input.</p>
+        </div>
+        <div class="workflow-card fade-up" style="animation-delay:0.15s">
+          <div class="workflow-icon workflow-icon-2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div class="workflow-step">2. AI Processes</div>
+          <h3>Instant Notes</h3>
+          <p>Our clinical-grade AI fills out each section of your structured documentation following a clinical note standard.</p>
+        </div>
+        <div class="workflow-card fade-up" style="animation-delay:0.3s">
+          <div class="workflow-icon workflow-icon-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="workflow-step">3. Review &amp; Sync</div>
+          <h3>Sign &amp; Submit</h3>
+          <p>Review the note on your tablet or desktop, make any edits, then push documentation directly to your existing EHR.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== SECURITY ====== -->
+  <section class="security" id="security">
+    <div class="container">
+      <div class="security-grid">
+        <div>
+          <h2>Medical-Grade Privacy. No Compromises.</h2>
+          <div class="security-features">
+            <div class="security-feature">
+              <div class="security-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div>
+                <h4>HIPAA &amp; SOC2 Compliant</h4>
+                <p>Every byte is encrypted. We exceed industry standards for health care data security and privacy protection.</p>
+              </div>
+            </div>
+            <div class="security-feature">
+              <div class="security-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              </div>
+              <div>
+                <h4>Local Processing Option</h4>
+                <p>Audio can be transcribed locally on your device. No PHI needs to leave your premises if you prefer on-site control.</p>
+              </div>
+            </div>
+            <div class="security-feature">
+              <div class="security-feature-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 9 8 12 2 12"/></svg>
+              </div>
+              <div>
+                <h4>No Audio Retention</h4>
+                <p>Audio is processed in real-time and immediately discarded. Your conversations are never stored after the visit ends.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="security-card">
+          <div class="shield-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Your Patient Data Stays Yours</h3>
+          <p>We do not sell, share, or train AI models on your patient data. Your practice's information is used only to serve you.</p>
+          <button class="btn">Download Security Whitepaper</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== CTA ====== -->
+  <section class="cta-section" id="cta">
+    <div class="container">
+      <h2 class="fade-up">Ready to recapture your time?</h2>
+      <p class="fade-up">Join thousands of practitioners who have eliminated charting after-hours. Experience the intelligent future of documentation today.</p>
+      <div class="cta-buttons fade-up">
+        <a href="#" class="btn btn-primary">Get Started Free</a>
+        <a href="#" class="btn btn-ghost">Schedule a Demo</a>
+      </div>
+      <p class="cta-note fade-up">No credit card required. HIPAA compliant setup in 5 minutes.</p>
+    </div>
+  </section>
+
+  <!-- ====== FLOATING CHAT ASSISTANT ====== -->
+  <button class="chat-fab" id="chatFab" aria-label="Chat with AI Smart Scribe">
+    <div class="chat-fab-pulse"></div>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+  </button>
+
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <div class="chat-panel-title">
+        <div class="chat-panel-dot"></div>
+        <span>Ask AI Smart Scribe</span>
+      </div>
+      <button class="chat-close" id="chatClose" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-starters" id="chatStarters">
+        <div class="chat-starters-label">Try asking:</div>
+        <div class="chat-starter-pills">
+          <button class="chat-starter" data-q="Generate me a sample SOAP note">Generate me a sample SOAP note</button>
+          <button class="chat-starter" data-q="Is this HIPAA compliant?">Is this HIPAA compliant?</button>
+          <button class="chat-starter" data-q="Can it run inside my practice?">Can it run inside my practice?</button>
+          <button class="chat-starter" data-q="How much time could I save?">How much time could I save?</button>
+          <button class="chat-starter" data-q="Does this work with Optomate?">Does this work with Optomate?</button>
+        </div>
+      </div>
+    </div>
+    <div class="chat-input-bar">
+      <input type="text" class="chat-input" id="chatInput" placeholder="Ask about AI Smart Scribe..." autocomplete="off">
+      <button class="chat-send" id="chatSend" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ====== FOOTER ====== -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span class="footer-brand">AI Smart Scribe</span>
+      <span class="footer-copy">&copy; 2024 AI Smart Scribe. HIPAA Compliant Clinical Intelligence.</span>
+      <ul class="footer-links">
+        <li><a href="#">Privacy</a></li>
+        <li><a href="#">Terms</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <!-- ====== JAVASCRIPT ====== -->
+  <script>
+    /* ==================================
+       NAV SCROLL BEHAVIOR
+       ================================== */
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    /* ==================================
+       MOBILE NAV TOGGLE
+       ================================== */
+    const navToggle = document.getElementById('navToggle');
+    const navLinks = document.querySelector('.nav-links');
+    navToggle.addEventListener('click', () => {
+      const open = navLinks.style.display === 'flex';
+      navLinks.style.display = open ? 'none' : 'flex';
+      navLinks.style.flexDirection = 'column';
+      navLinks.style.position = 'absolute';
+      navLinks.style.top = '100%';
+      navLinks.style.left = '0';
+      navLinks.style.right = '0';
+      navLinks.style.background = 'rgba(246,250,253,0.95)';
+      navLinks.style.backdropFilter = 'blur(20px)';
+      navLinks.style.padding = open ? '0' : '16px 24px';
+      navLinks.style.gap = '16px';
+      navLinks.style.borderRadius = '0 0 16px 16px';
+    });
+
+    /* ==================================
+       INTERSECTION OBSERVER — FADE UP
+       ================================== */
+    const fadeObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          fadeObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15 });
+
+    document.querySelectorAll('.fade-up').forEach(el => fadeObserver.observe(el));
+
+    /* ==================================
+       DEMO ANIMATION ENGINE
+       ================================== */
+    const dialogueData = [
+      { speaker: 'doctor', text: 'Good morning, Mrs. Johnson. How have things been since your last visit?' },
+      { speaker: 'patient', text: 'Hi Doctor. My right eye has been bothering me — it\'s been really dry and irritated, especially in the mornings.' },
+      { speaker: 'doctor', text: 'How long has the dryness been going on?' },
+      { speaker: 'patient', text: 'I\'d say about three weeks now. I\'ve been using over-the-counter drops but they only help for a little while.' },
+      { speaker: 'doctor', text: 'Any changes in your vision or any pain?' },
+      { speaker: 'patient', text: 'No pain, just that gritty, sandy feeling. My vision seems about the same.' },
+      { speaker: 'doctor', text: 'Let me take a look. I\'m going to start with the slit lamp exam.' },
+      { speaker: 'doctor', text: 'I\'m seeing reduced tear film quality in the right eye. Tear break-up time is about 4 seconds. Left eye looks better at 9 seconds.' },
+      { speaker: 'patient', text: 'Is that something serious?' },
+      { speaker: 'doctor', text: 'It\'s a very common condition — dry eye syndrome. I\'d like to start you on preservative-free artificial tears four times daily and we\'ll reassess in four weeks.' }
+    ];
+
+    const soapData = [
+      {
+        key: 'S', label: 'Subjective', cssClass: 's-label',
+        text: 'Patient reports 3-week history of dryness and irritation OD, worse in AM. Currently using OTC artificial tears with temporary relief. Denies pain or vision changes.',
+        appearsAfter: 2
+      },
+      {
+        key: 'O', label: 'Objective', cssClass: 'o-label',
+        text: 'VA: OD 20/25, OS 20/20. Slit lamp: Reduced tear film quality OD. <span class="medical-term">TBUT</span>: OD 4 sec, OS 9 sec. Cornea clear bilaterally. No staining with <span class="medical-term">fluorescein</span>.',
+        appearsAfter: 6
+      },
+      {
+        key: 'A', label: 'Assessment', cssClass: 'a-label',
+        text: '<span class="medical-term">Dry eye syndrome</span> (keratoconjunctivitis sicca), right eye. Mild severity.',
+        appearsAfter: 8
+      },
+      {
+        key: 'P', label: 'Plan', cssClass: 'p-label',
+        text: '1. Preservative-free artificial tears QID OD<br>2. Warm compresses BID<br>3. Follow-up in 4 weeks to reassess<br>4. Patient educated on environmental modifications',
+        appearsAfter: 9
+      }
+    ];
+
+    const dialogueFeed = document.getElementById('dialogueFeed');
+    const soapContent = document.getElementById('soapContent');
+    const demoDot = document.getElementById('demoDot');
+    const demoStatusLabel = document.getElementById('demoStatusLabel');
+    const demoTimer = document.getElementById('demoTimer');
+    const demoReplay = document.getElementById('demoReplay');
+    const dialogueTyping = document.getElementById('dialogueTyping');
+    const scribePulse = document.getElementById('scribePulse');
+    const liveBadge = document.getElementById('liveBadge');
+    const genBadge = document.getElementById('genBadge');
+
+    let demoRunning = false;
+    let demoTimeouts = [];
+    let timerInterval = null;
+
+    function clearDemo() {
+      demoTimeouts.forEach(t => clearTimeout(t));
+      demoTimeouts = [];
+      if (timerInterval) clearInterval(timerInterval);
+      dialogueFeed.innerHTML = '';
+      soapContent.innerHTML = '';
+      dialogueTyping.classList.remove('visible');
+      scribePulse.classList.remove('active');
+      demoDot.classList.remove('active');
+      demoStatusLabel.textContent = 'Ready';
+      demoTimer.textContent = '00:00';
+      liveBadge.textContent = 'Live';
+      genBadge.textContent = 'Generating';
+      demoRunning = false;
+    }
+
+    function startTimer() {
+      let seconds = 0;
+      timerInterval = setInterval(() => {
+        seconds++;
+        const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        demoTimer.textContent = m + ':' + s;
+      }, 1000);
+    }
+
+    function runDemo() {
+      if (demoRunning) return;
+      clearDemo();
+      demoRunning = true;
+      demoDot.classList.add('active');
+      demoStatusLabel.textContent = 'Recording';
+      scribePulse.classList.add('active');
+      startTimer();
+
+      // Pre-build SOAP section DOM
+      soapData.forEach(section => {
+        const el = document.createElement('div');
+        el.className = 'soap-section';
+        el.innerHTML =
+          '<div class="soap-label ' + section.cssClass + '">' +
+            '<strong>' + section.key + '</strong> — ' + section.label +
+          '</div>' +
+          '<div class="soap-text">' + section.text + '</div>';
+        soapContent.appendChild(el);
+      });
+
+      const soapEls = soapContent.querySelectorAll('.soap-section');
+
+      dialogueData.forEach((line, i) => {
+        const delay = (i + 1) * 1500;
+
+        // Show typing indicator slightly before each line
+        demoTimeouts.push(setTimeout(() => {
+          dialogueTyping.classList.add('visible');
+        }, delay - 400));
+
+        demoTimeouts.push(setTimeout(() => {
+          dialogueTyping.classList.remove('visible');
+
+          const el = document.createElement('div');
+          el.className = 'dialogue-line ' + line.speaker;
+          el.innerHTML =
+            '<div class="dialogue-speaker ' + line.speaker + '">' +
+              (line.speaker === 'doctor' ? 'Dr. Nguyen' : 'Mrs. Johnson') +
+            '</div>' +
+            '<div class="dialogue-text">' + line.text + '</div>';
+          dialogueFeed.appendChild(el);
+
+          // Trigger reflow then animate
+          requestAnimationFrame(() => el.classList.add('visible'));
+
+          // Auto-scroll dialogue feed
+          dialogueFeed.scrollTop = dialogueFeed.scrollHeight;
+
+          // Check if any SOAP sections should appear after this line
+          soapData.forEach((section, si) => {
+            if (section.appearsAfter === i) {
+              demoTimeouts.push(setTimeout(() => {
+                soapEls[si].classList.add('visible');
+              }, 600));
+            }
+          });
+
+          // Demo complete after last line
+          if (i === dialogueData.length - 1) {
+            demoTimeouts.push(setTimeout(() => {
+              demoDot.classList.remove('active');
+              demoStatusLabel.textContent = 'Complete';
+              scribePulse.classList.remove('active');
+              liveBadge.textContent = 'Done';
+              genBadge.textContent = 'Complete';
+              if (timerInterval) clearInterval(timerInterval);
+              demoRunning = false;
+            }, 1200));
+          }
+        }, delay));
+      });
+    }
+
+    // Auto-play on scroll into view
+    const demoObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !demoRunning) {
+          runDemo();
+          demoObserver.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.3 });
+
+    demoObserver.observe(document.getElementById('demoContainer'));
+
+    // Replay button
+    demoReplay.addEventListener('click', () => {
+      clearDemo();
+      setTimeout(runDemo, 200);
+    });
+
+    /* ==================================
+       SMOOTH SCROLL FOR ANCHOR LINKS
+       ================================== */
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    /* ==================================
+       FLOATING CHAT ASSISTANT
+       ================================== */
+    (function() {
+      const fab = document.getElementById('chatFab');
+      const panel = document.getElementById('chatPanel');
+      const closeBtn = document.getElementById('chatClose');
+      const messagesEl = document.getElementById('chatMessages');
+      const startersEl = document.getElementById('chatStarters');
+      const inputEl = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('chatSend');
+      const heroSection = document.querySelector('.hero');
+
+      let chatOpen = false;
+      let chatHistory = []; // { role, content }
+      let fabShown = false;
+      let sending = false;
+
+      // Show FAB after 15s OR when scrolled past hero
+      function showFab() {
+        if (fabShown) return;
+        fabShown = true;
+        fab.classList.add('visible');
+      }
+
+      setTimeout(showFab, 15000);
+
+      const heroObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) showFab();
+        });
+      }, { threshold: 0 });
+      heroObserver.observe(heroSection);
+
+      // Open / Close
+      fab.addEventListener('click', () => {
+        chatOpen = true;
+        panel.classList.add('open');
+        fab.classList.add('hidden');
+        inputEl.focus();
+      });
+
+      closeBtn.addEventListener('click', () => {
+        chatOpen = false;
+        panel.classList.remove('open');
+        fab.classList.remove('hidden');
+      });
+
+      // Escape to close
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && chatOpen) closeBtn.click();
+      });
+
+      // Starter pills
+      startersEl.querySelectorAll('.chat-starter').forEach(btn => {
+        btn.addEventListener('click', () => {
+          sendMessage(btn.dataset.q);
+        });
+      });
+
+      // Send on button click or Enter
+      sendBtn.addEventListener('click', () => {
+        const text = inputEl.value.trim();
+        if (text) sendMessage(text);
+      });
+
+      inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          const text = inputEl.value.trim();
+          if (text) sendMessage(text);
+        }
+      });
+
+      function addMessage(role, html) {
+        const msg = document.createElement('div');
+        msg.className = 'chat-msg ' + role;
+        msg.innerHTML = '<div class="chat-msg-bubble">' + html + '</div>';
+        messagesEl.appendChild(msg);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return msg;
+      }
+
+      function addLoading() {
+        const el = document.createElement('div');
+        el.className = 'chat-loading';
+        el.id = 'chatLoading';
+        el.innerHTML = '<span></span><span></span><span></span>';
+        messagesEl.appendChild(el);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return el;
+      }
+
+      function removeLoading() {
+        const el = document.getElementById('chatLoading');
+        if (el) el.remove();
+      }
+
+      function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      function formatReply(text) {
+        // Convert markdown-like formatting to HTML
+        return text
+          .split('\n\n')
+          .map(para => {
+            // Bold
+            para = para.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            // Handle line breaks within a paragraph
+            para = para.replace(/\n/g, '<br>');
+            return '<p>' + para + '</p>';
+          })
+          .join('');
+      }
+
+      async function sendMessage(text) {
+        if (sending) return;
+        sending = true;
+        sendBtn.disabled = true;
+
+        // Hide starters on first message
+        if (startersEl) {
+          startersEl.style.display = 'none';
+        }
+
+        // Show user message
+        addMessage('user', escapeHtml(text));
+        inputEl.value = '';
+
+        // Add to history
+        chatHistory.push({ role: 'user', content: text });
+
+        // Show loading
+        addLoading();
+
+        try {
+          const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: chatHistory })
+          });
+
+          removeLoading();
+
+          if (!res.ok) throw new Error('API error');
+
+          const data = await res.json();
+          const reply = data.reply;
+
+          chatHistory.push({ role: 'assistant', content: reply });
+          addMessage('assistant', formatReply(reply));
+
+        } catch (err) {
+          removeLoading();
+          addMessage('assistant',
+            '<p>I apologize — I\'m having trouble connecting right now. ' +
+            'Please try again in a moment, or reach out to Dennis Foy at ' +
+            'Integra Consulting directly.</p>'
+          );
+        }
+
+        sending = false;
+        sendBtn.disabled = false;
+        inputEl.focus();
+      }
+    })();
+  </script>
+</body>
+</html>
