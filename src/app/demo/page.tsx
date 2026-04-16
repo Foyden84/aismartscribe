@@ -1,14 +1,21 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { UserButton } from "@clerk/nextjs";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getOrCreateUser } from "@/db/users";
+import { DemoRoom } from "./DemoRoom";
 
 export const metadata = {
   title: "Demo · AI Smart Scribe",
 };
 
 export default async function DemoPage() {
-  const user = await currentUser();
-  const firstName = user?.firstName ?? "there";
+  const clerkUser = await currentUser();
+  if (!clerkUser) redirect("/sign-in");
+
+  // Ensure the Neon users row exists — covers the case where the Clerk
+  // webhook hasn't been configured yet.
+  const user = await getOrCreateUser(clerkUser);
 
   return (
     <div className="demo-shell">
@@ -23,28 +30,18 @@ export default async function DemoPage() {
             </Link>
             <Link href="/dashboard">Dashboard</Link>
           </nav>
-          <UserButton />
+          <div className="demo-nav-user">
+            <span className="demo-nav-greeting">
+              {user.firstName ?? "Welcome"}
+            </span>
+            <UserButton />
+          </div>
         </div>
       </header>
 
-      <main className="demo-placeholder">
+      <main className="demo-main">
         <div className="container">
-          <div className="demo-placeholder-card">
-            <span className="demo-placeholder-badge">Coming in Phase 6</span>
-            <h1>Hi {firstName} — your demo room is on the way.</h1>
-            <p>
-              The live patient-encounter simulator (with real-time SOAP note
-              generation) ships in the next build step. Check back shortly.
-            </p>
-            <div className="demo-placeholder-actions">
-              <Link href="/" className="btn btn-ghost">
-                Back to home
-              </Link>
-              <Link href="/dashboard" className="btn btn-primary">
-                View dashboard
-              </Link>
-            </div>
-          </div>
+          <DemoRoom />
         </div>
       </main>
     </div>

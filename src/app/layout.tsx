@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
+import { Toaster } from "react-hot-toast";
 import "./globals.css";
 
 const inter = Inter({
@@ -59,7 +60,26 @@ export default function RootLayout({
       }}
     >
       <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
-        <body>{children}</body>
+        <body>
+          {children}
+          <Toaster
+            position="bottom-center"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: "#00342b",
+                color: "#ffffff",
+                fontFamily: "var(--font-inter), sans-serif",
+                fontSize: "0.875rem",
+                padding: "12px 20px",
+                borderRadius: "9999px",
+              },
+              success: {
+                iconTheme: { primary: "#14b8a6", secondary: "#00342b" },
+              },
+            }}
+          />
+        </body>
       </html>
     </ClerkProvider>
   );
