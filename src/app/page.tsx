@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { UserButton, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
+import { MarketingNav } from "@/components/layout/MarketingNav";
 
 type Speaker = "doctor" | "patient";
 
@@ -121,12 +122,8 @@ interface ChatMessage {
 }
 
 export default function Home() {
-  // Auth state
+  // Auth state (used by hero + CTA to switch copy/links for signed-in users)
   const { isSignedIn, isLoaded: authLoaded } = useUser();
-
-  // Nav
-  const [navScrolled, setNavScrolled] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   // Demo
   const [shownDialogue, setShownDialogue] = useState<number[]>([]);
@@ -152,13 +149,6 @@ export default function Home() {
   const [chatSending, setChatSending] = useState(false);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const chatMessagesRef = useRef<HTMLDivElement>(null);
-
-  /* ========= Nav scroll ========= */
-  useEffect(() => {
-    const onScroll = () => setNavScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   /* ========= Fade-up observer ========= */
   useEffect(() => {
@@ -378,107 +368,11 @@ export default function Home() {
     [chatMessages, chatSending],
   );
 
-  const onSmoothScroll = useCallback(
-    (e: React.MouseEvent<HTMLAnchorElement>, targetSelector: string) => {
-      const target = document.querySelector(targetSelector);
-      if (target) {
-        e.preventDefault();
-        target.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    },
-    [],
-  );
-
   const timerDisplay = `${String(Math.floor(timerSeconds / 60)).padStart(2, "0")}:${String(timerSeconds % 60).padStart(2, "0")}`;
-
-  const mobileNavInline: React.CSSProperties = mobileNavOpen
-    ? {
-        display: "flex",
-        flexDirection: "column",
-        position: "absolute",
-        top: "100%",
-        left: 0,
-        right: 0,
-        background: "rgba(246,250,253,0.95)",
-        backdropFilter: "blur(20px)",
-        padding: "16px 24px",
-        gap: "16px",
-        borderRadius: "0 0 16px 16px",
-      }
-    : {};
 
   return (
     <>
-      {/* ====== NAV ====== */}
-      <nav className={`nav${navScrolled ? " scrolled" : ""}`} id="nav">
-        <div className="container nav-inner">
-          <a
-            href="#"
-            className="nav-logo"
-            onClick={(e) => onSmoothScroll(e, "body")}
-          >
-            AI Smart Scribe
-          </a>
-          <ul className="nav-links" style={mobileNavInline}>
-            <li>
-              <a href="#demo" onClick={(e) => onSmoothScroll(e, "#demo")}>
-                Platform
-              </a>
-            </li>
-            <li>
-              <a
-                href="#security"
-                onClick={(e) => onSmoothScroll(e, "#security")}
-              >
-                Security
-              </a>
-            </li>
-            <li>
-              <a
-                href="#workflow"
-                onClick={(e) => onSmoothScroll(e, "#workflow")}
-              >
-                Evidence
-              </a>
-            </li>
-            <li>
-              <a href="#cta" onClick={(e) => onSmoothScroll(e, "#cta")}>
-                Pricing
-              </a>
-            </li>
-          </ul>
-          <div className="nav-actions">
-            {authLoaded && !isSignedIn && (
-              <>
-                <Link href="/sign-in" className="nav-login">
-                  Login
-                </Link>
-                <Link href="/sign-up" className="btn btn-primary btn-sm">
-                  Get Started
-                </Link>
-              </>
-            )}
-            {authLoaded && isSignedIn && (
-              <>
-                <Link href="/demo" className="nav-login">
-                  Demo
-                </Link>
-                <UserButton />
-              </>
-            )}
-          </div>
-          <button
-            className="nav-toggle"
-            type="button"
-            aria-label="Toggle menu"
-            onClick={() => setMobileNavOpen((o) => !o)}
-          >
-            <span />
-            <span />
-            <span />
-          </button>
-        </div>
-      </nav>
+      <MarketingNav />
 
       {/* ====== HERO ====== */}
       <section className="hero">
@@ -504,11 +398,7 @@ export default function Home() {
                     Start Your Free Trial
                   </Link>
                 )}
-                <a
-                  href="#demo"
-                  className="btn btn-ghost"
-                  onClick={(e) => onSmoothScroll(e, "#demo")}
-                >
+                <a href="#demo" className="btn btn-ghost">
                   Watch Demo
                 </a>
               </div>

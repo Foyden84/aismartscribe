@@ -1,8 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getOrCreateUser } from "@/db/users";
+import { DemoNav } from "@/components/layout/DemoNav";
 import { DemoRoom } from "./DemoRoom";
 
 export const metadata = {
@@ -19,26 +18,7 @@ export default async function DemoPage() {
 
   return (
     <div className="demo-shell">
-      <header className="demo-nav">
-        <div className="container demo-nav-inner">
-          <Link href="/" className="nav-logo">
-            AI Smart Scribe
-          </Link>
-          <nav className="demo-nav-links">
-            <Link href="/demo" aria-current="page">
-              Demo
-            </Link>
-            <Link href="/dashboard">Dashboard</Link>
-          </nav>
-          <div className="demo-nav-user">
-            <span className="demo-nav-greeting">
-              {user.firstName ?? "Welcome"}
-            </span>
-            <UserButton />
-          </div>
-        </div>
-      </header>
-
+      <DemoNav firstName={user.firstName ?? "Welcome"} activePage="demo" />
       <main className="demo-main">
         <div className="container">
           <DemoRoom />
