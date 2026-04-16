@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { UserButton, useUser } from "@clerk/nextjs";
 
 type Speaker = "doctor" | "patient";
 
@@ -119,6 +121,9 @@ interface ChatMessage {
 }
 
 export default function Home() {
+  // Auth state
+  const { isSignedIn, isLoaded: authLoaded } = useUser();
+
   // Nav
   const [navScrolled, setNavScrolled] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -443,16 +448,24 @@ export default function Home() {
             </li>
           </ul>
           <div className="nav-actions">
-            <button className="nav-login" type="button">
-              Login
-            </button>
-            <a
-              href="#cta"
-              className="btn btn-primary btn-sm"
-              onClick={(e) => onSmoothScroll(e, "#cta")}
-            >
-              Get Started
-            </a>
+            {authLoaded && !isSignedIn && (
+              <>
+                <Link href="/sign-in" className="nav-login">
+                  Login
+                </Link>
+                <Link href="/sign-up" className="btn btn-primary btn-sm">
+                  Get Started
+                </Link>
+              </>
+            )}
+            {authLoaded && isSignedIn && (
+              <>
+                <Link href="/demo" className="nav-login">
+                  Demo
+                </Link>
+                <UserButton />
+              </>
+            )}
           </div>
           <button
             className="nav-toggle"
@@ -482,13 +495,15 @@ export default function Home() {
                 patient, not your keyboard.
               </p>
               <div className="hero-ctas">
-                <a
-                  href="#cta"
-                  className="btn btn-primary"
-                  onClick={(e) => onSmoothScroll(e, "#cta")}
-                >
-                  Start Your Free Trial
-                </a>
+                {authLoaded && isSignedIn ? (
+                  <Link href="/demo" className="btn btn-primary">
+                    Open Demo Room
+                  </Link>
+                ) : (
+                  <Link href="/sign-up" className="btn btn-primary">
+                    Start Your Free Trial
+                  </Link>
+                )}
                 <a
                   href="#demo"
                   className="btn btn-ghost"
@@ -906,12 +921,18 @@ export default function Home() {
             today.
           </p>
           <div className="cta-buttons fade-up">
-            <a href="#" className="btn btn-primary">
-              Get Started Free
-            </a>
-            <a href="#" className="btn btn-ghost">
+            {authLoaded && isSignedIn ? (
+              <Link href="/demo" className="btn btn-primary">
+                Open Demo Room
+              </Link>
+            ) : (
+              <Link href="/sign-up" className="btn btn-primary">
+                Get Started Free
+              </Link>
+            )}
+            <Link href="/sign-up" className="btn btn-ghost">
               Schedule a Demo
-            </a>
+            </Link>
           </div>
           <p className="cta-note fade-up">
             No credit card required. HIPAA compliant setup in 5 minutes.

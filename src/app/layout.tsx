@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Manrope } from "next/font/google";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
 const inter = Inter({
@@ -37,8 +38,29 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
-      <body>{children}</body>
-    </html>
+    <ClerkProvider
+      afterSignOutUrl="/"
+      appearance={{
+        variables: {
+          colorPrimary: "#00342b",
+          colorText: "#1a2b32",
+          colorTextSecondary: "#40555e",
+          colorBackground: "#ffffff",
+          colorInputBackground: "#eef3f8",
+          colorInputText: "#1a2b32",
+          borderRadius: "0.5rem",
+          fontFamily: "var(--font-inter), sans-serif",
+        },
+        elements: {
+          formButtonPrimary:
+            "bg-[#00342b] hover:bg-[#00684f] text-white font-semibold",
+          card: "shadow-none",
+        },
+      }}
+    >
+      <html lang="en" className={`${inter.variable} ${manrope.variable}`}>
+        <body>{children}</body>
+      </html>
+    </ClerkProvider>
   );
 }
